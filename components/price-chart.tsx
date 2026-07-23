@@ -1,15 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
-import {
-  Area,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ReferenceLine,
-  XAxis,
-  YAxis,
-} from "recharts"
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import {
   Card,
   CardContent,
@@ -23,117 +14,72 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart"
-import type { District, Product } from "@/lib/data"
+import type { Product } from "@/lib/data"
 
 const chartConfig = {
   historico: {
-    label: "Precio histórico real",
+    label: "Precio histórico",
     color: "var(--chart-1)",
   },
   prediccion: {
-    label: "Predicción del ensamble",
-    color: "var(--chart-4)",
+    label: "Predicción",
+    color: "var(--chart-2)",
   },
 } satisfies ChartConfig
 
-export function PriceChart({
-  product,
-  district,
-}: {
-  product: Product
-  district: District
-}) {
-  const data = useMemo(
-    () =>
-      product.serie.map((p) => ({
-        date: p.date,
-        historico:
-          p.historico === null ? null : +(p.historico * district.factor).toFixed(2),
-        prediccion:
-          p.prediccion === null
-            ? null
-            : +(p.prediccion * district.factor).toFixed(2),
-      })),
-    [product.serie, district.factor],
-  )
-
+export function PriceChart({ product }: { product: Product }) {
   return (
-    <Card className="h-full">
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <Card>
+      <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <CardTitle className="text-base">
-            Precio histórico real vs. predicción del ensamble
+            Precio histórico vs. predicción
           </CardTitle>
           <CardDescription>
-            {product.nombre} · {product.unidad} · {district.nombre} · serie
-            mensual 2020–2025
+            {product.nombre} · {product.unidad} · últimos 14 días y horizonte de
+            7 días
           </CardDescription>
         </div>
-        <div className="flex flex-wrap items-center gap-4 text-xs">
+        <div className="flex items-center gap-4 text-xs">
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="h-0.5 w-4 rounded bg-chart-1" aria-hidden="true" />
-            Histórico real
+            Histórico
           </span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span
-              className="h-0.5 w-4 rounded"
+              className="h-0.5 w-4 rounded bg-chart-2"
               style={{
                 backgroundImage:
-                  "repeating-linear-gradient(90deg, var(--chart-4) 0 5px, transparent 5px 9px)",
+                  "repeating-linear-gradient(90deg, var(--chart-2) 0 4px, transparent 4px 7px)",
+                backgroundColor: "transparent",
               }}
               aria-hidden="true"
             />
-            Predicción del ensamble
+            Predicción
           </span>
         </div>
       </CardHeader>
       <CardContent>
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[320px] w-full"
+          className="aspect-auto h-[300px] w-full"
         >
-          <ComposedChart data={data} margin={{ left: 4, right: 12, top: 8 }}>
-            <defs>
-              <linearGradient id="fillHistorico" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="5%"
-                  stopColor="var(--color-historico)"
-                  stopOpacity={0.25}
-                />
-                <stop
-                  offset="95%"
-                  stopColor="var(--color-historico)"
-                  stopOpacity={0.02}
-                />
-              </linearGradient>
-            </defs>
+          <LineChart data={product.serie} margin={{ left: 4, right: 12, top: 8 }}>
             <CartesianGrid vertical={false} strokeDasharray="3 3" />
             <XAxis
               dataKey="date"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              minTickGap={40}
+              minTickGap={24}
             />
             <YAxis
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              width={48}
+              width={44}
               domain={["auto", "auto"]}
               tickFormatter={(v) => `S/ ${Number(v).toFixed(1)}`}
-            />
-            <ReferenceLine
-              x="Jun 25"
-              stroke="var(--muted-foreground)"
-              strokeDasharray="4 4"
-              strokeOpacity={0.5}
-              label={{
-                value: "Pronóstico",
-                position: "insideTopRight",
-                fill: "var(--muted-foreground)",
-                fontSize: 11,
-              }}
             />
             <ChartTooltip
               cursor={{ strokeDasharray: "4 4" }}
@@ -152,12 +98,11 @@ export function PriceChart({
                 />
               }
             />
-            <Area
+            <Line
               dataKey="historico"
               type="monotone"
               stroke="var(--color-historico)"
               strokeWidth={2.5}
-              fill="url(#fillHistorico)"
               dot={false}
               connectNulls
             />
@@ -165,12 +110,12 @@ export function PriceChart({
               dataKey="prediccion"
               type="monotone"
               stroke="var(--color-prediccion)"
-              strokeWidth={2}
+              strokeWidth={2.5}
               strokeDasharray="6 5"
               dot={false}
               connectNulls
             />
-          </ComposedChart>
+          </LineChart>
         </ChartContainer>
       </CardContent>
     </Card>

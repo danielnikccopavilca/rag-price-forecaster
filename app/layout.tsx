@@ -1,7 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
-import { ThemeProvider } from '@/components/theme-provider'
 import './globals.css'
 
 const inter = Inter({
@@ -10,17 +9,15 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'RAG Price Forecaster - Lima Sur | Predicción de Precios',
+  title: 'RAG Price Forecaster | Predicción de Precios',
   description:
-    'Prototipo de tesis: predicción de precios mayoristas de alimentos en Lima Sur con un ensamble XGBoost + LSTM y un asistente RAG agrometeorológico basado en boletines del MIDAGRI, BCRP y SENAMHI.',
+    'Prototipo de tesis: predicción de precios de alimentos en el Perú con XGBoost + LSTM y un asistente RAG basado en boletines del MIDAGRI y BCRP.',
   generator: 'v0.app',
 }
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#1a365d' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f1c33' },
-  ],
+  colorScheme: 'light',
+  themeColor: '#2f4fb0',
 }
 
 export default function RootLayout({
@@ -29,16 +26,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="es" className={`${inter.variable} bg-background`} suppressHydrationWarning>
+    <html lang="es" className={`${inter.variable} bg-background`}>
       <body className="font-sans antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          {children}
-        </ThemeProvider>
+        {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>

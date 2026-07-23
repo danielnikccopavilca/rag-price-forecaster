@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { FileText, Quote, Search, Send, Sparkles } from "lucide-react"
+import { FileText, Search, Send, Sparkles } from "lucide-react"
 import {
   Card,
   CardContent,
@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import type { Citation, Product, SourceName } from "@/lib/data"
+import type { Citation, Product } from "@/lib/data"
 import { cn } from "@/lib/utils"
 
 interface Message {
@@ -21,17 +21,20 @@ interface Message {
   citations?: Citation[]
 }
 
-const SUGGESTIONS = [
-  "¿Qué factores explican la variación del precio?",
-  "¿Qué dice el boletín del SENAMHI?",
-]
-
 export function RagChat({ product }: { product: Product }) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [thinking, setThinking] = useState(false)
   const composing = useRef(false)
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  const suggestion = `¿Por qué ${
+    product.variacion >= 0 ? "subirá" : "bajará"
+  } ${
+    product.nombre === "Pollo Entero"
+      ? "el pollo"
+      : `la ${product.nombre.toLowerCase()}`
+  }?`
 
   // Reinicia la conversación al cambiar de producto.
   useEffect(() => {
@@ -50,40 +53,38 @@ export function RagChat({ product }: { product: Product }) {
   function ask(question: string) {
     const q = question.trim()
     if (!q || thinking) return
-    setMessages((prev) => [
-      ...prev,
-      { id: `u-${Date.now()}`, role: "user", text: q },
-    ])
+    const userMsg: Message = {
+      id: `u-${Date.now()}`,
+      role: "user",
+      text: q,
+    }
+    setMessages((prev) => [...prev, userMsg])
     setInput("")
     setThinking(true)
 
-    // Simula la recuperación de contexto + generación del pipeline RAG.
+    // Simula la recuperación + generación del pipeline RAG.
     window.setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: `a-${Date.now()}`,
-          role: "assistant",
-          text: product.respuestaRag,
-          citations: product.citas,
-        },
-      ])
+      const answer: Message = {
+        id: `a-${Date.now()}`,
+        role: "assistant",
+        text: product.respuestaRag,
+        citations: product.citas,
+      }
+      setMessages((prev) => [...prev, answer])
       setThinking(false)
-    }, 1200)
+    }, 1100)
   }
 
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="flex flex-row items-center gap-3 border-b">
         <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Sparkles className="size-[18px]" aria-hidden="true" />
+          <Sparkles className="size-4.5" aria-hidden="true" />
         </span>
         <div>
-          <CardTitle className="text-base">
-            Asistente RAG Agrometeorológico
-          </CardTitle>
+          <CardTitle className="text-base">Asistente RAG</CardTitle>
           <CardDescription>
-            Respuestas fundamentadas en MIDAGRI, BCRP y SENAMHI
+            Respuestas fundamentadas en boletines del MIDAGRI y BCRP
           </CardDescription>
         </div>
       </CardHeader>
@@ -95,18 +96,14 @@ export function RagChat({ product }: { product: Product }) {
           aria-live="polite"
         >
           {messages.length === 0 && !thinking && (
-            <EmptyState onPick={ask} />
+            <EmptyState suggestion={suggestion} onPick={ask} />
           )}
 
           {messages.map((m) =>
             m.role === "user" ? (
               <UserBubble key={m.id} text={m.text} />
             ) : (
-              <AssistantBubble
-                key={m.id}
-                text={m.text}
-                citations={m.citations}
-              />
+              <AssistantBubble key={m.id} text={m.text} citations={m.citations} />
             ),
           )}
 
@@ -130,7 +127,7 @@ export function RagChat({ product }: { product: Product }) {
               onChange={(e) => setInput(e.target.value)}
               onCompositionStart={() => (composing.current = true)}
               onCompositionEnd={() => (composing.current = false)}
-              placeholder="Pregunta por los factores del precio..."
+              placeholder={`Pregunta sobre ${product.nombre}...`}
               aria-label="Escribe tu pregunta al asistente RAG"
               className="pl-9"
             />
@@ -145,26 +142,27 @@ export function RagChat({ product }: { product: Product }) {
   )
 }
 
-function EmptyState({ onPick }: { onPick: (q: string) => void }) {
+function EmptyState({
+  suggestion,
+  onPick,
+}: {
+  suggestion: string
+  onPick: (q: string) => void
+}) {
   return (
     <div className="flex flex-col items-start gap-3 rounded-lg border border-dashed border-border bg-muted/40 p-4">
-      <p className="text-sm leading-relaxed text-muted-foreground">
-        Pregunta al modelo por qué varía el precio. El sistema recupera
-        fragmentos de boletines oficiales del MIDAGRI, BCRP y SENAMHI, y genera
-        una explicación citando cada fuente.
+      <p className="text-sm text-muted-foreground leading-relaxed">
+        Hazle una pregunta al modelo sobre la tendencia del precio. El sistema
+        recupera fragmentos de boletines oficiales y genera una explicación
+        citando la fuente.
       </p>
-      <div className="flex flex-wrap gap-2">
-        {SUGGESTIONS.map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => onPick(s)}
-            className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
-          >
-            {s}
-          </button>
-        ))}
-      </div>
+      <button
+        type="button"
+        onClick={() => onPick(suggestion)}
+        className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/10"
+      >
+        {suggestion}
+      </button>
     </div>
   )
 }
@@ -194,7 +192,7 @@ function AssistantBubble({
       {citations && citations.length > 0 && (
         <div className="flex flex-col gap-2 pl-1">
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Contexto recuperado ({citations.length} fuentes)
+            Fuentes citadas
           </p>
           {citations.map((c) => (
             <CitationCard key={c.codigo} citation={c} />
@@ -205,12 +203,6 @@ function AssistantBubble({
   )
 }
 
-const SOURCE_STYLES: Record<SourceName, string> = {
-  MIDAGRI: "bg-chart-3/15 text-chart-3",
-  BCRP: "bg-primary/10 text-primary",
-  SENAMHI: "bg-chart-4/15 text-chart-4",
-}
-
 function CitationCard({ citation }: { citation: Citation }) {
   return (
     <div className="flex items-start gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
@@ -218,27 +210,23 @@ function CitationCard({ citation }: { citation: Citation }) {
         <FileText className="size-4" aria-hidden="true" />
       </span>
       <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <span
             className={cn(
               "rounded px-1.5 py-0.5 text-[10px] font-bold tracking-wide",
-              SOURCE_STYLES[citation.fuente],
+              citation.fuente === "MIDAGRI"
+                ? "bg-chart-3/15 text-chart-3"
+                : "bg-primary/10 text-primary",
             )}
           >
             {citation.fuente}
           </span>
           <span className="text-xs text-muted-foreground">{citation.fecha}</span>
         </div>
-        <p className="mt-1 text-sm font-medium leading-snug text-foreground">
+        <p className="mt-1 text-sm font-medium text-foreground leading-snug">
           {citation.titulo}
         </p>
-        <p className="mb-1.5 text-xs text-muted-foreground">
-          Ref. {citation.codigo}
-        </p>
-        <p className="flex gap-1.5 rounded-md bg-muted/60 px-2 py-1.5 text-xs italic leading-relaxed text-muted-foreground">
-          <Quote className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-          {citation.extracto}
-        </p>
+        <p className="text-xs text-muted-foreground">Ref. {citation.codigo}</p>
       </div>
     </div>
   )
