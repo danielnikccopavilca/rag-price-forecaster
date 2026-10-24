@@ -1,29 +1,32 @@
 "use client"
 
-import { Bot, FileText, Database, ShieldCheck, ExternalLink } from "lucide-react"
+import { Bot, FileText, Database, ShieldCheck, ExternalLink, BarChart3 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Product } from "@/lib/data"
 
 export function RagChat({ product }: { product: Product }) {
-  // Fuentes documentales reales extraídas de tu corpus de tesis (1,420 documentos)
+  // Fuentes documentales oficiales con sus URLs reales de origen
   const fuentesRAG = [
     {
       institucion: "MIDAGRI SISAP",
       tipo: "Reporte de Abastecimiento y Precios",
       referencia: `Ref. SISAP-${product.id.toUpperCase()}-2026`,
-      detalle: `Monitoreo diario de ingresos al Mercado Mayorista de Santa Anita para ${product.nombre}.`
+      detalle: `Monitoreo diario de ingresos al Mercado Mayorista de Santa Anita para ${product.nombre}.`,
+      url: "http://sistemas.midagri.gob.pe/sisap/portal2/mayorista/resumenes/consultar/#"
     },
     {
       institucion: "SENAMHI",
-      tipo: "Alerta Agrometeorológica",
-      referencia: "Informe Técnico Estacional",
-      detalle: "Evaluación de condiciones térmicas y precipitaciones en valles abastecedores de Lima Sur."
+      tipo: "Alerta Agrometeorológica y Lluvias",
+      referencia: "Boletines Agrometeorológicos 2020-2025",
+      detalle: "Evaluación de condiciones térmicas, precipitaciones e impacto en valles abastecedores.",
+      url: "https://www.gob.pe/institucion/senamhi/buscador?contenido=publicaciones&institucion=senamhi&sheet=1&sort_by=none&term=%20BOLETIN%20DE%20LLUVIAS%202020"
     },
     {
-      institucion: "BCRP",
-      tipo: "Notas de Estudios",
-      referencia: "Choques de Oferta y Tipo de Cambio",
-      detalle: "Análisis de incidencia macroeconómica y costos de importación de insumos agrícolas."
+      institucion: "BCRP / SBS",
+      tipo: "Tipo de Cambio Histórico",
+      referencia: "Series Cambiarias USD/PEN",
+      detalle: "Análisis de incidencia macroeconómica y costos de importación de insumos agrícolas.",
+      url: "https://www.sbs.gob.pe/app/stats/seriesH_TC-CV-Historico.asp"
     }
   ]
 
@@ -43,10 +46,29 @@ export function RagChat({ product }: { product: Product }) {
         </div>
       </CardHeader>
 
-      <CardContent className="flex flex-1 flex-col justify-between p-4 space-y-4 overflow-y-auto max-h-[460px]">
+      <CardContent className="flex flex-1 flex-col justify-between p-4 space-y-4 overflow-y-auto max-h-[500px]">
+        
+        {/* Bloque de Métricas del Dataset (Tesis: 10,950 observaciones y 1,420 docs) */}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="rounded-lg bg-primary/5 p-2.5 border border-primary/20 text-center">
+            <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-primary mb-0.5">
+              <BarChart3 className="size-3.5" /> Series Temporales
+            </div>
+            <p className="text-sm font-bold text-foreground">10,950 obs.</p>
+            <p className="text-[10px] text-muted-foreground">5 prod. × 365 días × 6 años</p>
+          </div>
+          <div className="rounded-lg bg-primary/5 p-2.5 border border-primary/20 text-center">
+            <div className="flex items-center justify-center gap-1 text-[11px] font-semibold text-primary mb-0.5">
+              <Database className="size-3.5" /> Corpus RAG
+            </div>
+            <p className="text-sm font-bold text-foreground">1,420 docs.</p>
+            <p className="text-[10px] text-muted-foreground">Indexados en ChromaDB</p>
+          </div>
+        </div>
+
         {/* Resumen del Contexto Recuperado para el Producto Activo */}
-        <div className="rounded-xl bg-muted/60 p-3.5 border border-border">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1.5">
+        <div className="rounded-xl bg-muted/60 p-3 border border-border">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-1">
             <ShieldCheck className="size-4" />
             <span>Contexto Recuperado para {product.nombre} (t+7)</span>
           </div>
@@ -55,27 +77,32 @@ export function RagChat({ product }: { product: Product }) {
           </p>
         </div>
 
-        {/* Listado de Fuentes Documentales Vectorizadas */}
+        {/* Listado de Fuentes Documentales con Enlaces a las Webs Oficiales */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2.5 flex items-center gap-1">
-            <Database className="size-3.5" /> Corpus Documental Indexado (ChromaDB)
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+            <FileText className="size-3.5" /> Trazabilidad de Fuentes Oficiales
           </p>
           
-          <div className="space-y-2.5">
-            {fuentesRAG.map(( fuente, idx) => (
-              <div key={idx} className="rounded-lg border border-border bg-card p-3 text-xs shadow-2xs">
+          <div className="space-y-2">
+            {fuentesRAG.map((fuente, idx) => (
+              <div key={idx} className="rounded-lg border border-border bg-card p-2.5 text-xs shadow-2xs hover:border-primary/40 transition-colors">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="font-semibold text-primary px-1.5 py-0.5 rounded bg-primary/10">
+                  <span className="font-semibold text-primary px-1.5 py-0.5 rounded bg-primary/10 text-[11px]">
                     {fuente.institucion}
                   </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {fuente.referencia}
-                  </span>
+                  <a 
+                    href={fuente.url} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                  >
+                    Ver Fuente <ExternalLink className="size-3" />
+                  </a>
                 </div>
-                <p className="font-medium text-foreground mb-1">
+                <p className="font-medium text-foreground mb-0.5">
                   {fuente.tipo}
                 </p>
-                <p className="text-muted-foreground text-[11px] leading-snug">
+                <p className="text-muted-foreground text-[11px] leading-tight">
                   {fuente.detalle}
                 </p>
               </div>
@@ -83,18 +110,6 @@ export function RagChat({ product }: { product: Product }) {
           </div>
         </div>
 
-        {/* Enlace al Repositorio o Metodología */}
-        <div className="pt-2 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-          <span>Latencia de recuperación: <strong className="text-foreground">14.2 ms</strong></span>
-          <a 
-            href="https://github.com/danielnikccopavilca/rag-price-forecaster.git" 
-            target="_blank" 
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
-          >
-            Ver Repositorio <ExternalLink className="size-3" />
-          </a>
-        </div>
       </CardContent>
     </Card>
   )
