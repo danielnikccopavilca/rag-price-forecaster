@@ -8,14 +8,20 @@ import { PriceChart } from "@/components/price-chart"
 import { RagChat } from "@/components/rag-chat"
 import { getProduct, type ProductId } from "@/lib/data"
 
-// Función para regenerar las fechas y el punto de empalme exacto al día de hoy (24 Oct)
-function generarFechasDinamicas(serieOriginal: any[], valorPrediccionFinal?: number) {
-  const hoy = new Date() // Toma la fecha actual (24 de Octubre)
+// Función para generar fechas dinámicas y alinear el punto actual exactamente al precio real
+function generarFechasDinamicas(
+  serieOriginal: any[], 
+  precioActualReal: number, 
+  valorPrediccionFinal?: number
+) {
+  const hoy = new Date() // Toma la fecha actual (24 de Octubre de 2026)
   const totalPuntos = serieOriginal.length // 10 puntos en la serie
   
-  // El antepenúltimo punto (índice 7) se fija en HOY (24 Oct)
+  // El antepenúltimo punto se fija exactamente en HOY (24 Oct)
   const indiceHoy = totalPuntos - 3
   const diasIntervalo = 2.3 
+
+  const valorBaseOriginal = serieOriginal[indiceHoy]?.historico ?? serieOriginal[indiceHoy]?.prediccion ?? precioActualReal
 
   return serieOriginal.map((item, index) => {
     // 1. Calcular la fecha formateada para cada punto
@@ -27,21 +33,23 @@ function generarFechasDinamicas(serieOriginal: any[], valorPrediccionFinal?: num
     const mes = fechaPunto.toLocaleDateString("es-ES", { month: "short" })
     const fechaFormateada = `${dia} ${mes.charAt(0).toUpperCase() + mes.slice(1)}`
 
-    // Extraer el precio numérico base del objeto original
-    const precioBase = item.historico ?? item.prediccion ?? 4.0
+    // 2. Escalar el precio proporcionalmente al precioActualReal del producto
+    const valorItemOriginal = item.historico ?? item.prediccion ?? valorBaseOriginal
+    const ratio = valorItemOriginal / valorBaseOriginal
+    const precioCalculado = Number((precioActualReal * ratio).toFixed(2))
 
-    // 2. Reestructurar el corte exacto de Histórico y Predicción
+    // 3. Asignación estricta de Histórico vs Predicción
     let nuevoHistorico: number | null = null
     let nuevaPrediccion: number | null = null
 
     if (index < indiceHoy) {
       // Puntos pasados: Solo curva histórica sólida
-      nuevoHistorico = precioBase
+      nuevoHistorico = precioCalculado
       nuevaPrediccion = null
     } else if (index === indiceHoy) {
-      // Punto actual (HOY): Punto de empalme donde se cruzan las líneas
-      nuevoHistorico = precioBase
-      nuevaPrediccion = precioBase
+      // Punto actual (HOY - 24 Oct): Forzado exactamente al precio actual real
+      nuevoHistorico = precioActualReal
+      nuevaPrediccion = precioActualReal
     } else if (index === totalPuntos - 1 && valorPrediccionFinal) {
       // Último punto (t+7): Valor predicho enviado por la API en Render
       nuevoHistorico = null
@@ -49,12 +57,12 @@ function generarFechasDinamicas(serieOriginal: any[], valorPrediccionFinal?: num
     } else {
       // Puntos intermedios del horizonte de predicción
       nuevoHistorico = null
-      nuevaPrediccion = precioBase
+      nuevaPrediccion = precioCalculado
     }
 
     return {
       fecha: fechaFormateada,
-      date: fechaFormateada, // Asegura compatibilidad con PriceChart
+      date: fechaFormateada, // Mantiene compatibilidad con PriceChart
       historico: nuevoHistorico,
       prediccion: nuevaPrediccion,
     }
@@ -89,15 +97,15 @@ export default function Page() {
         if (res.ok) {
           const data = await res.json()
           
-          // Ajuste de escala o uso del valor predicho enviado por Render
+          // Ajuste de escala de la predicción de la API
           const valorPrediccion = data.prediccion_t7 < 2 
             ? Number((localProduct.precioActual * (1 + (data.prediccion_t7 - 0.80) * 0.1)).toFixed(2))
             : Number(data.prediccion_t7.toFixed(2))
 
           const variacionCalculada = Number((((valorPrediccion - localProduct.precioActual) / localProduct.precioActual) * 100).toFixed(1))
 
-          // AQUÍ ESTÁ EXACTAMENTE EL CÓDIGO QUE BUSCABAS:
-          const nuevaSerie = generarFechasDinamicas(localProduct.serie, valorPrediccion)
+          // Generar serie sincronizada con el precio actual y el valor de Render
+          const nuevaSerie = generarFechasDinamicas(localProduct.serie, localProduct.precioActual, valorPrediccion)
 
           setProduct({
             ...localProduct,
@@ -110,10 +118,10 @@ export default function Page() {
       } catch (error) {
         console.error("Error al conectar con Render, usando datos de respaldo:", error)
         
-        // En caso de fallo de red, igual ajustamos el gráfico a las fechas de hoy
+        // Fallback local manteniendo las fechas e integridad del precio actual
         setProduct({
           ...localProduct,
-          serie: generarFechasDinamicas(localProduct.serie)
+          serie: generarFechasDinamicas(localProduct.serie, localProduct.precioActual)
         })
       } finally {
         setLoading(false)
