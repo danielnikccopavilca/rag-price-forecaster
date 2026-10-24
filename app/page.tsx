@@ -11,23 +11,22 @@ import { getProduct, type ProductId } from "@/lib/data"
 // Función auxiliar para generar fechas reales dinámicas (14 días atrás + 7 días predicción)
 function generarFechasDinamicas(serieOriginal: any[]) {
   const hoy = new Date()
-  const totalPuntos = serieOriginal.length // típicamente 8-10 puntos
-  const diasIntervalo = 3 // paso entre puntos de la gráfica
+  const totalPuntos = serieOriginal.length
+  const diasIntervalo = 3
 
   return serieOriginal.map((item, index) => {
-    // Calculamos el desfase en días con respecto a la fecha actual
     const diasDiferencia = (index - (totalPuntos - 3)) * diasIntervalo
     const fechaPunto = new Date(hoy)
     fechaPunto.setDate(hoy.getDate() + diasDiferencia)
 
     const dia = fechaPunto.getDate()
     const mes = fechaPunto.toLocaleDateString("es-ES", { month: "short" })
-    // Formato ej: "18 Oct", "24 Oct", "31 Oct"
     const fechaFormateada = `${dia} ${mes.charAt(0).toUpperCase() + mes.slice(1)}`
 
     return {
       ...item,
       fecha: fechaFormateada,
+      date: fechaFormateada, // <--- Suministra la propiedad exacta que busca PriceChart
     }
   })
 }
