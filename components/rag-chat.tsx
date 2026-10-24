@@ -17,133 +17,59 @@ export function RagChat({ product }: { product: Product }) {
   const [loading, setLoading] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
 
-  // Al cambiar de producto, reiniciamos el chat con un mensaje inicial específico del producto activo
+  // Reiniciar chat al cambiar de producto
   useEffect(() => {
-    const explicacionBase = product.respuestaRag || 
-      `Análisis RAG para ${product.nombre}: El modelo proyecta un precio de S/ ${product.prediccion7d.toFixed(2)} ` +
-      `(${product.variacion >= 0 ? '+' : ''}${product.variacion}% a 7 días). ` +
-      `Se observa estabilidad en los volúmenes de ingreso a los mercados mayoristas de Lima Sur.`
-
     setMessages([
       {
         role: "assistant",
-        content: explicacionBase,
+        content: product.respuestaRag || `Asistente RAG activo para ${product.nombre}. Haz cualquier pregunta sobre la variación proyectada del precio, clima o abastecimiento.`,
         fuentes: [
-          `Boletín Diario MIDAGRI SISAP - ${product.nombre}`,
-          `Notas de Estudios BCRP - Choques Agrícolas`
+          `Boletín MIDAGRI SISAP - ${product.nombre}`,
+          "Notas de Estudios BCRP"
         ]
       }
     ])
-  }, [product.id, product.nombre, product.prediccion7d, product.variacion, product.respuestaRag])
-
-  // Función inteligente para construir o consultar la respuesta RAG basada en la pregunta enviada
-  const generarRespuestaRagDinamica = (pregunta: string, contextoBackend?: string[]): { respuesta: string; fuentes: string[] } => {
-    const qLower = pregunta.toLowerCase()
-    const esSube = product.variacion >= 0
-    const absVar = Math.abs(product.variacion)
-
-    // Si la API en Render devolvió fragmentos específicos en contexto_rag
-    if (contextoBackend && contextoBackend.length > 0) {
-      return {
-        respuesta: contextoBackend.join(" "),
-        fuentes: [
-          `MIDAGRI SISAP - Informe Técnico (${product.nombre})`,
-          `BCRP - Reporte de Inflación y Tipo de Cambio`
-        ]
-      }
-    }
-
-    // Respuestas dinámicas según la temática de la pregunta recibida
-    if (qLower.includes("por que") || qLower.includes("por qué") || qLower.includes("variará") || qLower.includes("razón") || qLower.includes("subirá") || qLower.includes("bajará")) {
-      return {
-        respuesta: `La variación proyectada del ${esSube ? '+' : '-'}${absVar}% en el precio de ${product.nombre.toLowerCase()} ` +
-          `se explica principalmente por la dinámica de abastecimiento registrada en los boletines de MIDAGRI. ` +
-          `${esSube ? 'Un leve ajuste a la baja en los volúmenes diarios en el Mercado Mayorista de Lima ' : 'Un flujo constante de cosecha en las zonas productoras '} ` +
-          `junto a la estabilidad del tipo de cambio (BCRP) respaldan la proyección a 7 días del ensamble XGBoost + LSTM.`,
-        fuentes: [
-          `MIDAGRI SISAP - Reporte de Abastecimiento Mayorista (${product.nombre})`,
-          `BCRP - Indicadores Macroeconómicos`
-        ]
-      }
-    }
-
-    if (qLower.includes("clima") || qLower.includes("senamhi") || qLower.includes("lluvia") || qLower.includes("temperatura")) {
-      return {
-        respuesta: `Según el monitoreo de agrometeorología de SENAMHI para ${product.nombre.toLowerCase()}, las condiciones en los valles abastecedores de Lima ` +
-          `presentan niveles óptimos. No se detectan choques climáticos severos que comprometan el tránsito hacia Lima Sur en el horizonte de 7 días.`,
-        fuentes: [
-          `SENAMHI - Monitoreo Agrometeorológico Nacional`,
-          `MIDAGRI - Evaluación de Áreas Sembradas`
-        ]
-      }
-    }
-
-    if (qLower.includes("dólar") || qLower.includes("dolar") || qLower.includes("bcrp") || qLower.includes("insumo") || qLower.includes("fertilizante")) {
-      return {
-        respuesta: `Las notas de estudios del BCRP indican que la estabilidad cambiaria actual mitiga la presión sobre los costos de fertilizantes y fletes del transporte para ${product.nombre.toLowerCase()}, permitiendo un comportamiento predecible en los precios mayoristas.`,
-        fuentes: [
-          `BCRP - Nota de Estudios de Choques de Oferta`,
-          `INEI - Índice de Precios al Consumidor`
-        ]
-      }
-    }
-
-    // Respuesta general RAG por defecto ante cualquier otra pregunta abierta
-    return {
-      respuesta: `En relación a tu consulta sobre "${pregunta}": Para ${product.nombre.toLowerCase()}, el sistema RAG identifica un precio actual de S/ ${product.precioActual.toFixed(2)} ` +
-        `y un estimado a 7 días de S/ ${product.prediccion7d.toFixed(2)} (${esSube ? '+' : ''}${product.variacion}%). ` +
-        `El análisis de vectores en ChromaDB sugiere mantener el seguimiento de los boletines de ingreso diario.`,
-      fuentes: [
-        `ChromaDB Vector Store - Documentos MIDAGRI/BCRP (${product.nombre})`,
-        `MIDAGRI SISAP - Monitoreo Mayorista`
-      ]
-    }
-  }
+  }, [product.id, product.nombre, product.respuestaRag])
 
   const handleSend = async (preguntaTexto?: string) => {
     const textoAEnviar = preguntaTexto || input
     if (!textoAEnviar.trim() || loading) return
 
+    // 1. Agregar mensaje del usuario
     const userMessage: Message = { role: "user", content: textoAEnviar }
     setMessages((prev) => [...prev, userMessage])
     if (!preguntaTexto) setInput("")
     setLoading(true)
 
     try {
-      // Petición a la API pasando la pregunta y el producto
+      // 2. Consulta 100% REAL a la API en Render enviando el producto y la pregunta del usuario
       const res = await fetch(
-        `https://rag-price-forecaster-api.onrender.com/api/predict?producto=${encodeURIComponent(product.nombre)}&query=${encodeURIComponent(textoAEnviar)}`
+        `https://rag-price-forecaster-api.onrender.com/api/rag-chat?producto=${encodeURIComponent(product.nombre)}&query=${encodeURIComponent(textoAEnviar)}`
       )
       
-      let contextoRagApi: string[] | undefined = undefined
-
       if (res.ok) {
         const data = await res.json()
-        if (data.contexto_rag && data.contexto_rag.length > 0) {
-          contextoRagApi = data.contexto_rag
-        }
+        
+        // 3. Mostrar la respuesta real devuelta por el motor RAG/LLM del servidor
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: data.respuesta,
+            fuentes: data.fuentes || []
+          }
+        ])
+      } else {
+        throw new Error("Error en la respuesta del servidor RAG")
       }
-
-      // Generar respuesta verdaderamente dinámica
-      const { respuesta, fuentes } = generarRespuestaRagDinamica(textoAEnviar, contextoRagApi)
-
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: respuesta,
-          fuentes: fuentes
-        }
-      ])
     } catch (error) {
-      // Si la red falla, la respuesta generada localmente igual responde de forma dinámica a la pregunta exacta
-      const { respuesta, fuentes } = generarRespuestaRagDinamica(textoAEnviar)
+      console.error("Error al conectar con el motor RAG de Render:", error)
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: respuesta,
-          fuentes: fuentes
+          content: `Ocurrió un inconveniente al consultar el servidor RAG para ${product.nombre}. Por favor reintenta en unos instantes.`,
+          fuentes: []
         }
       ])
     } finally {
@@ -161,16 +87,15 @@ export function RagChat({ product }: { product: Product }) {
           <div>
             <CardTitle className="text-base">Asistente RAG</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Respuestas fundamentadas en boletines del MIDAGRI, BCRP y SENAMHI
+              Respuestas dinámicas fundamentadas en ChromaDB, MIDAGRI y BCRP
             </p>
           </div>
         </div>
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col justify-between p-4 overflow-hidden">
-        {/* Contenedor de mensajes con scroll */}
+        {/* Contenedor de mensajes */}
         <div className="flex-1 overflow-y-auto space-y-4 pr-2 max-h-[340px]">
-          {/* Botón de sugerencia rápida adaptado al producto actual */}
           <div className="flex justify-end">
             <Button
               variant="outline"
@@ -231,7 +156,7 @@ export function RagChat({ product }: { product: Product }) {
               <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground animate-pulse">
                 <Bot className="size-3.5" />
               </span>
-              <p className="text-xs italic">Consultando ChromaDB y generando respuesta aumentada para {product.nombre}...</p>
+              <p className="text-xs italic">Buscando vectores en ChromaDB y generando respuesta...</p>
             </div>
           )}
         </div>
