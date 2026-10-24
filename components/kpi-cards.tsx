@@ -43,7 +43,10 @@ export function KpiCards({ product }: { product: Product }) {
           <span
             className={cn(
               "flex items-center gap-0.5 text-sm font-semibold",
-              isUp ? "text-chart-5" : "text-success",
+              // Verde para incremento (+), Rojo para caída (-)
+              isUp 
+                ? "text-emerald-600 dark:text-emerald-400" 
+                : "text-rose-600 dark:text-rose-400",
             )}
           >
             {isUp ? (
