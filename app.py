@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 
@@ -17,7 +17,6 @@ app = FastAPI(
 )
 
 # Habilitar CORS para permitir solicitudes desde tu Vercel y pruebas locales
-app.allow_origins = ["*"]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -41,12 +40,12 @@ def obtener_prediccion(producto: str = "Papa Blanca"):
     # 1. Instanciar el ensamble híbrido (con los pesos de tu tesis)
     ensemble = HybridPredictiveEnsemble()
 
-    # 2. Simular/Obtener inferencia a t+7 (puedes conectar aquí tu lógica real del dataset)
+    # 2. Obtener inferencia a t+7
     pred_t7 = ensemble.compute_ensemble_prediction(
         xgb_pred=0.82, prophet_pred=0.80, bilstm_pred=0.85, rag_context_score=0.03
     )
 
-    # 3. Consultar contexto en el RAG ChromaDB (opcional si deseas dinamizarlo)
+    # 3. Consultar contexto en el RAG ChromaDB
     rag = RAGVectorStore()
     contexto = rag.query_context(
         f"impacto climático en la producción de {producto}"
@@ -71,4 +70,4 @@ def obtener_prediccion(producto: str = "Papa Blanca"):
         },
     }
   except Exception as e:
-    return {"error": str(e)}, 500
+    raise HTTPException(status_code=500, detail=str(e))
