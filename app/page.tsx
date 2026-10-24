@@ -6,7 +6,7 @@ import { ProductSidebar } from "@/components/product-sidebar"
 import { KpiCards } from "@/components/kpi-cards"
 import { PriceChart } from "@/components/price-chart"
 import { RagChat } from "@/components/rag-chat"
-import { getProduct, type ProductId } from "@/lib/data"
+import { getProduct, PRODUCTS, type ProductId, type Product } from "@/lib/data"
 
 // Función para generar fechas dinámicas y alinear el punto actual exactamente al precio real
 function generarFechasDinamicas(
@@ -63,8 +63,11 @@ function generarFechasDinamicas(
 export default function Page() {
   const [selected, setSelected] = useState<ProductId>("arroz")
   
-  const localProduct = getProduct(selected)
-  const [product, setProduct] = useState(localProduct)
+  // Guardamos la lista global de productos para mantener sincronizados los % del sidebar
+  const [productsList, setProductsList] = useState<Product[]>(PRODUCTS)
+  
+  const localProduct = productsList.find((p) => p.id === selected) || getProduct(selected)
+  const [product, setProduct] = useState<Product>(localProduct)
   const [loading, setLoading] = useState(false)
 
   const fechaHoyStr = new Date().toLocaleDateString("es-ES", {
@@ -85,33 +88,39 @@ export default function Page() {
         if (res.ok) {
           const data = await res.json()
           
-          // Calculamos la prediccion real
           const valorPrediccion = data.prediccion_t7 < 2 
             ? Number((localProduct.precioActual * (1 + (data.prediccion_t7 - 0.80) * 0.1)).toFixed(2))
             : Number(data.prediccion_t7.toFixed(2))
 
-          // Porcentaje de variación real entre t+7 y Hoy
           const variacionCalculada = Number(
             (((valorPrediccion - localProduct.precioActual) / localProduct.precioActual) * 100).toFixed(1)
           )
 
           const nuevaSerie = generarFechasDinamicas(localProduct.serie, localProduct.precioActual, valorPrediccion)
 
-          setProduct({
+          const productoActualizado: Product = {
             ...localProduct,
             prediccion7d: valorPrediccion,
-            variacion: variacionCalculada, // Se actualiza la variación real
+            variacion: variacionCalculada,
             serie: nuevaSerie,
             respuestaRag: data.contexto_rag ? data.contexto_rag.join(" ") : localProduct.respuestaRag,
-          })
+          }
+
+          setProduct(productoActualizado)
+
+          // Sincronizamos la variación calculada en la lista del Sidebar
+          setProductsList((prev) =>
+            prev.map((p) => (p.id === selected ? productoActualizado : p))
+          )
         }
       } catch (error) {
         console.error("Error al conectar con Render, usando datos de respaldo:", error)
         
-        setProduct({
+        const fallbackProduct = {
           ...localProduct,
           serie: generarFechasDinamicas(localProduct.serie, localProduct.precioActual)
-        })
+        }
+        setProduct(fallbackProduct)
       } finally {
         setLoading(false)
       }
@@ -123,7 +132,11 @@ export default function Page() {
   return (
     <div className="flex min-h-svh flex-col bg-background md:flex-row">
       <div className="md:sticky md:top-0 md:h-svh">
-        <ProductSidebar selected={selected} onSelect={setSelected} />
+        <ProductSidebar 
+          selected={selected} 
+          onSelect={setSelected} 
+          productsList={productsList} 
+        />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
