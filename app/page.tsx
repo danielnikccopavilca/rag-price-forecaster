@@ -8,6 +8,30 @@ import { PriceChart } from "@/components/price-chart"
 import { RagChat } from "@/components/rag-chat"
 import { getProduct, type ProductId } from "@/lib/data"
 
+// Función auxiliar para generar fechas reales dinámicas (14 días atrás + 7 días predicción)
+function generarFechasDinamicas(serieOriginal: any[]) {
+  const hoy = new Date()
+  const totalPuntos = serieOriginal.length // típicamente 8-10 puntos
+  const diasIntervalo = 3 // paso entre puntos de la gráfica
+
+  return serieOriginal.map((item, index) => {
+    // Calculamos el desfase en días con respecto a la fecha actual
+    const diasDiferencia = (index - (totalPuntos - 3)) * diasIntervalo
+    const fechaPunto = new Date(hoy)
+    fechaPunto.setDate(hoy.getDate() + diasDiferencia)
+
+    const dia = fechaPunto.getDate()
+    const mes = fechaPunto.toLocaleDateString("es-ES", { month: "short" })
+    // Formato ej: "18 Oct", "24 Oct", "31 Oct"
+    const fechaFormateada = `${dia} ${mes.charAt(0).toUpperCase() + mes.slice(1)}`
+
+    return {
+      ...item,
+      fecha: fechaFormateada,
+    }
+  })
+}
+
 export default function Page() {
   const [selected, setSelected] = useState<ProductId>("arroz")
   
@@ -16,6 +40,13 @@ export default function Page() {
   
   const [product, setProduct] = useState(localProduct)
   const [loading, setLoading] = useState(false)
+
+  // Obtener fecha formateada para el header (ej: 24 Oct 2026)
+  const fechaHoyStr = new Date().toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  })
 
   useEffect(() => {
     async function fetchApiData() {
@@ -29,17 +60,16 @@ export default function Page() {
         if (res.ok) {
           const data = await res.json()
           
-          // Si la API devuelve un valor en rango 0-1 (normalizado), proyectamos proporcionalmente al precio actual
-          // Si la API devuelve el precio real en soles, lo usamos directamente.
           const valorPrediccion = data.prediccion_t7 < 2 
             ? Number((localProduct.precioActual * (1 + (data.prediccion_t7 - 0.80) * 0.1)).toFixed(2))
             : Number(data.prediccion_t7.toFixed(2))
 
-          // Calculamos la variación %
           const variacionCalculada = Number((((valorPrediccion - localProduct.precioActual) / localProduct.precioActual) * 100).toFixed(1))
 
-          // Actualizamos la serie del gráfico haciendo que el último punto coincida con valorPrediccion
-          const nuevaSerie = [...localProduct.serie]
+          // 1. Generar la serie con fechas dinámicas actualizadas al día de hoy
+          let nuevaSerie = generarFechasDinamicas(localProduct.serie)
+
+          // 2. Ajustar el valor final de predicción con la respuesta de Render
           if (nuevaSerie.length > 0) {
             nuevaSerie[nuevaSerie.length - 1] = {
               ...nuevaSerie[nuevaSerie.length - 1],
@@ -57,7 +87,12 @@ export default function Page() {
         }
       } catch (error) {
         console.error("Error al conectar con Render, usando datos de respaldo:", error)
-        setProduct(localProduct)
+        
+        // Incluso si usa fallback local, actualizamos las fechas al día de hoy
+        setProduct({
+          ...localProduct,
+          serie: generarFechasDinamicas(localProduct.serie)
+        })
       } finally {
         setLoading(false)
       }
@@ -90,7 +125,7 @@ export default function Page() {
             </span>
             <span className="flex items-center gap-1.5">
               <CalendarClock className="size-3.5" aria-hidden="true" />
-              Actualizado: En vivo (t+7)
+              Actualizado: {fechaHoyStr} (t+7)
             </span>
           </div>
         </header>
