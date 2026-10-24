@@ -17,7 +17,7 @@ class SISAPDataProcessor:
       sisap_path="data/reporteProductos_2020_2025.xls",
       sbs_path="data/ReporteTipoDeCambioSBS_2020_2025.xls",
   ):
-    # 📌 CAMBIO: Ahora apunta automáticamente a la subcarpeta 'data/'
+    #  CAMBIO: Ahora apunta automáticamente a la subcarpeta 'data/'
     self.sisap_path = sisap_path
     self.sbs_path = sbs_path
 
